@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remote-job-launcher
+  namespace: default # Or your preferred namespace in Cluster A
+  labels:
+    app: remote-job-launcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remote-job-launcher
+  template:
+    metadata:
+      labels:
+        app: remote-job-launcher
+    spec:
+      serviceAccountName: remote-job-launcher-sa # Specify the service account
+      containers:
+      - name: launcher
+        image: YOUR_DOCKER_REGISTRY/remote-job-launcher:latest # <-- IMPORTANT: Replace with your image URI
+        args:
+          - "--target-cluster-name"
+          - "cluster-b-dev" # Example: name of the kubeconfig file for target cluster
+          - "--job-image"
+          - "busybox" # Example: image for the job in Cluster B
+          - "--job-namespace"
+          - "target-jobs" # Example: namespace in Cluster B for the job
+          # Kubeconfig base path is defaulted in the app to /etc/kubeconfigs
+        volumeMounts:
+        - name: kubeconfigs
+          mountPath: "/etc/kubeconfigs"
+          readOnly: true
+      volumes:
+      - name: kubeconfigs
+        secret:
+          secretName: cluster-b-kubeconfig # Name of the secret containing the kubeconfig for 'cluster-b-dev'
+          # This secret should have a key that matches the --target-cluster-name argument,
+          # e.g., a key named 'cluster-b-dev' whose value is the kubeconfig content.
+          # Example for creating such a secret:
+          # kubectl create secret generic cluster-b-kubeconfig --from-file=cluster-b-dev=/path/to/your/cluster-b-dev.kubeconfig
+
+      # SecurityContext for the pod if needed, e.g. fsGroup to ensure secret mount readability by appuser
+      # securityContext:
+      #   fsGroup: <ID of appuser, typically 1000 or similar if useradd was used as in Dockerfile>
+
+      # If you need to target multiple clusters, you might need multiple secrets
+      # or a single secret with multiple kubeconfig files, and adjust the deployment args accordingly
+      # or modify the application to select from multiple files in the mounted directory.
+      # The current app expects the filename in /etc/kubeconfigs/ to be exactly the value of --target-cluster-name.
