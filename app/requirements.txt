@@ -1,0 +1,3 @@
+kubernetes>=26.0.0
+# Using a recent version of the kubernetes client.
+# Pinning to a major version is a good practice.

@@ -1,0 +1,40 @@
+# This RBAC setup is for Cluster A.
+# It grants the ServiceAccount permissions to read the Secret containing kubeconfigs for Cluster B.
+
+# If the secret 'cluster-b-kubeconfig' is in the same namespace as the deployment:
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: remote-job-launcher-role
+  namespace: default # Must match the namespace of the Deployment and ServiceAccount
+rules:
+- apiGroups: [""] # Core API group
+  resources: ["secrets"]
+  resourceNames: ["cluster-b-kubeconfig"] # Specific secret name
+  verbs: ["get", "watch"] # "watch" might not be strictly necessary but "get" is essential
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: remote-job-launcher-rb
+  namespace: default # Must match the namespace of the Deployment and ServiceAccount
+subjects:
+- kind: ServiceAccount
+  name: remote-job-launcher-sa # Name of the ServiceAccount
+  namespace: default # Namespace of the ServiceAccount
+roleRef:
+  kind: Role
+  name: remote-job-launcher-role # Name of the Role created above
+  apiGroup: rbac.authorization.k8s.io
+
+# Note:
+# If you plan to store kubeconfigs for many target clusters in different secrets,
+# you might want to grant broader access, e.g., to all secrets with a specific label,
+# or list multiple resourceNames.
+# For now, this is specific to a single secret named 'cluster-b-kubeconfig'.
+#
+# If the secret is in a different namespace, you would need a Role and RoleBinding
+# in that namespace, granting access to the ServiceAccount from the deployment's namespace.
+# Or, use a ClusterRole and ClusterRoleBinding if you need cluster-wide access to secrets
+# (though this is less secure and generally not recommended if namespace-specific access is sufficient).
